@@ -1,0 +1,111 @@
+# 📈 QuantBacktest
+A simple and modular Python framework for developing and backtesting quantitative trading strategies.
+
+## 🚀 Features
+- Clean and modular project structure  
+- Supports multiple strategies (MA crossover, statistical arbitrage)  
+- Custom backtesting engine (signals → orders → PnL)  
+- Risk metrics: Sharpe, Sortino, Max Drawdown, Volatility  
+- Parameter optimization with grid search  
+- Visualizations for equity curve and parameter heatmaps  
+- Reproducible config-based workflow  
+
+---
+
+## 📂 Project Structure
+```
+QuantBacktest/
+│
+├── data/
+│   ├── raw/                # raw historical CSVs
+│   └── processed/          # cleaned data
+│
+├── src/
+│   ├── data_loader.py      # load & preprocess data
+│   ├── indicators.py       # MA, EMA, z-score, etc.
+│   │
+│   ├── strategy/
+│   │   ├── ma_crossover.py # moving average crossover strategy
+│   │   └── stat_arb.py     # statistical arbitrage strategy
+│   │
+│   ├── backtester/
+│   │   ├── engine.py       # core backtesting engine
+│   │   └── metrics.py      # Sharpe, MDD, Sortino
+│   │
+│   ├── optimizer/
+│   │   └── grid_search.py  # parameter optimization
+│   │
+│   ├── visualization/
+│   │   ├── equity_curve.py # equity curve plotting
+│   │   └── heatmap.py      # heatmap visualization
+│   │
+│   └── utils.py            # helper functions
+│
+├── notebooks/
+│   ├── EDA.ipynb           # data exploration
+│   ├── Backtest_MA.ipynb   # MA crossover demo
+│   └── Optimization.ipynb  # grid search visualization
+│
+├── results/
+│   ├── charts/             # output charts
+│   ├── reports/            # html/pdf reports
+│   └── logs/               # run logs
+│
+├── tests/
+│   ├── test_indicators.py  
+│   ├── test_backtester.py  
+│   └── test_strategy.py
+│
+├── config/
+│   └── config.yaml         # main config
+│
+├── requirements.txt
+├── README.md
+└── run_backtest.py         # main entry point
+```
+
+---
+
+## ▶️ Usage
+1. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+2. Place your historical CSV files in:
+```
+data/raw/
+```
+
+3. Edit configuration in:
+```
+config/config.yaml
+```
+
+4. Run a full backtest:
+```bash
+python run_backtest.py
+```
+
+---
+
+## 📊 Example Outputs
+- Equity curve  
+- Drawdown curve  
+- Trade log  
+- Parameter heatmap  
+- Sharpe / Sortino / Max Drawdown summary  
+
+(These will be saved automatically to `results/`.)
+
+---
+
+## 📘 Notes
+- The framework is fully modular — add new strategies by creating new files in `src/strategy/`.  
+- All backtests are reproducible through the config file.  
+- Designed to be simple, clean, and extensible for personal quant research.
+
+---
+
+## 📄 License
+MIT License
