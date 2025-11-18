@@ -23,9 +23,12 @@ SYMBOL = "NVDA"
 # ==========================
 
 from src.strategies import STRATEGY_PARAM_MAP
+STRATEGY_NAME = "meta_transformer"
+STRATEGY_PARAMS = {
+    "model_path": "models/meta_transformer.pt",
+    "temperature": 1.0,
+}
 
-STRATEGY_NAME = "meta_xgb_weight"
-STRATEGY_PARAMS = STRATEGY_PARAM_MAP[STRATEGY_NAME]
 
 
 # ==========================
