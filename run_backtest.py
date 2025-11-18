@@ -1,110 +1,168 @@
-import os
+# run_backtest.py
 
-from src.data_loader import load_data
-from src.strategy_ma import ma_crossover
-from src.backtester.engine import backtest
+from src.config import (
+    DATA_PATH,
+    INITIAL_CAPITAL,
+    COMMISSION,
+    SLIPPAGE,
+    RISK_FREQ,
+    CHART_DIR,
+    SYMBOL,
+    STRATEGY_NAME,
+    STRATEGY_PARAMS,
+)
+
+from src.data.loader import load_data
+from src.strategies import apply_strategy
+from src.backtester.engine import BacktestEngine
 from src.backtester.trade_log import generate_trade_log
 from src.backtester.metrics import sharpe_ratio, max_drawdown, volatility
 from src.optimizer.grid_search import grid_search_ma
-from src.plot import plot_equity_and_drawdown, plot_entry_exit
+from src.plot.equity import plot_equity_and_drawdown
+from src.plot.entry_exit import plot_entry_exit
+from src.utils.helpers import print_section, time_block, ensure_dir
 
 
-DATA_PATH = "data/raw/data.csv"
-CHART_DIR = "results/charts"
-
-
-def run_single_backtest(df, short=10, long=50,
-                        initial_capital=10000,
-                        commission=0.0005, slippage=0.0002,
-                        equity_path=None, entry_path=None,
-                        label="Initial"):
+# ===============================
+# 单次回测（不做Grid Search）
+# ===============================
+def run_single_backtest(df_raw, label: str):
     """
-    跑一次简单的 MA 回测 + 打印指标 + 画图（可选）
+    使用 config 中指定的策略（STRATEGY_NAME）跑一次完整回测
+    不画图，只打印指标
     """
-    print(f"\n=== {label} Strategy: MA({short}, {long}) ===")
 
-    # 生成信号
-    df = ma_crossover(df.copy(), short=short, long=long)
+    print_section(f"{label} 策略回测  ({STRATEGY_NAME})")
+    print(f"使用参数：{STRATEGY_PARAMS}")
 
-    # 回测
-    df = backtest(df,
-                  initial_capital=initial_capital,
-                  commission=commission,
-                  slippage=slippage)
+    # 1) 生成信号
+    df_sig = apply_strategy(df_raw.copy(), STRATEGY_NAME, **STRATEGY_PARAMS)
 
-    # 风险指标
+    # 2) 回测
+    engine = BacktestEngine(
+        initial_capital=INITIAL_CAPITAL,
+        commission=COMMISSION,
+        slippage=SLIPPAGE,
+    )
+    df_bt = engine.run(df_sig)
+
+    # 3) 交易日志
+    trades = generate_trade_log(df_bt)
+
+    # 4) 风险指标
     print("Risk Metrics:")
-    print(f"  Sharpe Ratio       : {sharpe_ratio(df):.4f}")
-    print(f"  Max Drawdown (MDD) : {max_drawdown(df):.4f}")
-    print(f"  Volatility         : {volatility(df):.4f}")
+    print(f"  Sharpe Ratio : {sharpe_ratio(df_bt, freq=RISK_FREQ):.4f}")
+    print(f"  Max Drawdown : {max_drawdown(df_bt):.4f}")
+    print(f"  Volatility   : {volatility(df_bt, freq=RISK_FREQ):.4f}")
+    print(f"  Total Trades : {len(trades)}")
 
-    # 交易日志
-    trades = generate_trade_log(df)
-    print(f"  Total trades       : {len(trades)}")
+    print("\nSample Trades (first 5):")
+    for t in trades[:5]:
+        print(" ", t)
 
-    # 画图（如果给了路径）
-    if equity_path is not None:
-        plot_equity_and_drawdown(df, save_path=equity_path)
-    if entry_path is not None:
-        plot_entry_exit(df, trades, save_path=entry_path)
-
-    return df, trades
+    return df_bt, trades
 
 
+# ===============================
+# 主入口
+# ===============================
 def main():
-    # 确保输出目录存在
-    os.makedirs(CHART_DIR, exist_ok=True)
-
-    # ========= 1. 加载数据 =========
-    print("Loading data...")
+    # --------------------------
+    # 1. 加载数据
+    # --------------------------
+    print_section("加载数据")
     df_raw = load_data(DATA_PATH)
+    print(f"Loaded data from: {DATA_PATH}")
+    print(f"Rows: {len(df_raw)}, Columns: {list(df_raw.columns)}")
 
-    # ========= 2. 初始策略回测 =========
+    # --------------------------
+    # 2. baseline回测（按当前策略）
+    # --------------------------
     df_init, trades_init = run_single_backtest(
         df_raw,
-        short=10,
-        long=50,
-        initial_capital=10000,
-        commission=0.0005,
-        slippage=0.0002,
-        equity_path=os.path.join(CHART_DIR, "equity_drawdown_initial.png"),
-        entry_path=os.path.join(CHART_DIR, "entry_exit_initial.png"),
-        label="Initial",
+        label=f"Baseline ({SYMBOL})",
     )
 
-    # ========= 3. 参数优化（Grid Search） =========
-    print("\nRunning parameter optimization (Grid Search)...")
-    best, res_df = grid_search_ma(
-        df_raw,  # 用原始数据做参数搜索更干净
-        short_range=[5, 10, 20, 30],
-        long_range=[50, 100, 150],
-        commission=0.0005,
-        slippage=0.0002,
-        save_path=os.path.join(CHART_DIR, "heatmap_sharpe.png"),
-    )
+    # --------------------------
+    # 3. 如果不是 MA，则跳过 Grid Search
+    # --------------------------
+    if STRATEGY_NAME != "ma":
+        print_section("当前策略不是 MA，跳过 Grid Search 参数优化")
 
-    print("\n=== Grid Search Results ===")
+        # 画图
+        equity_path = f"{CHART_DIR}/equity_drawdown_{STRATEGY_NAME}.png"
+        entry_path = f"{CHART_DIR}/entry_exit_{STRATEGY_NAME}.png"
+
+        ensure_dir(equity_path)
+        ensure_dir(entry_path)
+
+        plot_equity_and_drawdown(df_init, save_path=equity_path)
+        plot_entry_exit(df_init, save_path=entry_path)
+
+        print("图表已输出：")
+        print(f"  - {equity_path}")
+        print(f"  - {entry_path}")
+        return
+
+    # --------------------------
+    # 4. MA Grid Search
+    # --------------------------
+    print_section("Grid Search 参数优化 (MA)")
+
+    with time_block("Grid Search (Sharpe)"):
+        best, res_df = grid_search_ma(
+            df_raw,
+            short_range=MA_SHORT_RANGE,
+            long_range=MA_LONG_RANGE,
+            commission=COMMISSION,
+            slippage=SLIPPAGE,
+            save_path=f"{CHART_DIR}/heatmap_sharpe.png",
+        )
+
+    print("Grid Search 结果：")
     print(res_df)
 
-    print("\n=== Best Parameters ===")
-    print(f"  Short MA : {best['short']}")
-    print(f"  Long  MA : {best['long']}")
-    print(f"  Sharpe   : {best['sharpe']:.4f}")
+    print("\nBest Parameters:")
+    print(f"  short  = {best['short']}")
+    print(f"  long   = {best['long']}")
+    print(f"  sharpe = {best['sharpe']:.4f}")
 
-    # ========= 4. 使用最优参数再回测一遍 =========
-    df_best, trades_best = run_single_backtest(
-        df_raw,
-        short=int(best["short"]),
-        long=int(best["long"]),
-        initial_capital=10000,
-        commission=0.0005,
-        slippage=0.0002,
-        equity_path=os.path.join(CHART_DIR, "equity_drawdown_best.png"),
-        entry_path=os.path.join(CHART_DIR, "entry_exit_best.png"),
-        label="Optimized (Best Params)",
+    # --------------------------
+    # 5. 用最优参数重新回测 + 图
+    # --------------------------
+    print_section("最优参数回测 + 图表输出")
+
+    # 用 MA 的最佳参数重新生成信号
+    df_best_sig = apply_strategy(
+        df_raw.copy(),
+        "ma",
+        short_window=int(best["short"]),
+        long_window=int(best["long"])
     )
 
-    print("\n🎉 Clean run complete — Only best charts saved!")
+    engine = BacktestEngine(
+        initial_capital=INITIAL_CAPITAL,
+        commission=COMMISSION,
+        slippage=SLIPPAGE,
+    )
+    df_best = engine.run(df_best_sig)
+
+    trades_best = generate_trade_log(df_best)
+
+    equity_path = f"{CHART_DIR}/equity_drawdown_best.png"
+    entry_path = f"{CHART_DIR}/entry_exit_best.png"
+
+    ensure_dir(equity_path)
+    ensure_dir(entry_path)
+
+    plot_equity_and_drawdown(df_best, save_path=equity_path)
+    plot_entry_exit(df_best, save_path=entry_path)
+
+    print_section("完成")
+    print("最佳参数策略已输出：")
+    print(f"  - {equity_path}")
+    print(f"  - {entry_path}")
+    print(f"  - Sharpe (best) : {best['sharpe']:.4f}")
 
 
 if __name__ == "__main__":

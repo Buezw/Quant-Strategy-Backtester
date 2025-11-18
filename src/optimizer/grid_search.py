@@ -1,22 +1,42 @@
-import numpy as np
 import pandas as pd
+import numpy as np
+from src.backtester.engine import run_backtest
+from src.backtester.metrics import sharpe_ratio
+from src.strategies.ma import ma_strategy
+
 import matplotlib.pyplot as plt
+import seaborn as sns
 import os
 
-from src.strategy_ma import ma_crossover
 
-from src.backtester.engine import backtest
-from src.backtester.metrics import sharpe_ratio
+def _ensure_dir(path: str):
+    folder = os.path.dirname(path)
+    if folder and not os.path.exists(folder):
+        os.makedirs(folder)
 
 
 def grid_search_ma(
-    df,
+    df_raw: pd.DataFrame,
     short_range=[5, 10, 20],
-    long_range=[30, 50, 100],
+    long_range=[50, 100, 150],
     commission=0.0005,
     slippage=0.0002,
-    save_path="results/charts/heatmap_sharpe.png"
+    save_path: str = None,
 ):
+    """
+    对 MA 策略进行参数优化。
+
+    参数：
+    - df_raw: 原始数据（未加入 signal/no returns）
+    - short_range: 短均线搜索范围
+    - long_range: 长均线搜索范围
+    - commission/slippage: 交易成本
+    - save_path: 如果提供则自动保存 heatmap
+
+    返回：
+    - best_param: {"short": x, "long": y, "sharpe": z}
+    - result_df: 所有参数组合的结果 DataFrame
+    """
 
     results = []
 
@@ -24,54 +44,49 @@ def grid_search_ma(
         for long in long_range:
 
             if short >= long:
-                continue  # MA 策略里短均线必须 < 长均线
-            
-            df_tmp = df.copy()
+                continue   # MA 策略不能 short>=long，否则没意义
 
-            # 策略
-            df_tmp = ma_crossover(df_tmp, short=short, long=long)
+            # 1) 生成 signal
+            df_sig = ma_strategy(df_raw, short=short, long=long)
 
-            # 回测（带手续费和滑点）
-            df_tmp = backtest(df_tmp, commission=commission, slippage=slippage)
-            df_tmp = df_tmp.dropna()
+            # 2) 回测
+            df_bt = run_backtest(df_sig, commission=commission, slippage=slippage)
 
-            # 策略收益
-            ret = df_tmp["net_ret"].dropna()
+            # 3) 计算 sharpe
+            sharpe = sharpe_ratio(df_bt)
 
+            results.append({
+                "short": short,
+                "long": long,
+                "sharpe": sharpe
+            })
 
-            sharpe = sharpe_ratio(df_tmp)
-    
-            results.append([short, long, sharpe])
+    # 转为 DataFrame
+    res_df = pd.DataFrame(results).sort_values("sharpe", ascending=False).reset_index(drop=True)
 
-    # 整理为 DataFrame
-    res_df = pd.DataFrame(results, columns=["short", "long", "sharpe"])
+    # 最优参数
+    best = res_df.iloc[0].to_dict()
 
-    # —— 构造热力图矩阵 ——
-    heatmap_data = res_df.pivot(index="long", columns="short", values="sharpe")
+    # -------------------------
+    # (Optional) 生成 Heatmap
+    # -------------------------
+    if save_path:
+        _ensure_dir(save_path)
 
-    # —— 保存热力图 ——
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    plt.switch_backend("Agg")
+        pivot = res_df.pivot(index="short", columns="long", values="sharpe")
 
-    plt.figure(figsize=(10, 6))
-    plt.title("Sharpe Ratio Heatmap (MA Strategy)")
-    plt.xlabel("Short MA")
-    plt.ylabel("Long MA")
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(
+            pivot,
+            annot=True,
+            cmap="viridis",
+            fmt=".3f",
+            cbar_kws={"label": "Sharpe Ratio"},
+        )
+        plt.title("MA Parameter Grid Search (Sharpe)")
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
+        plt.close()
 
-    plt.imshow(heatmap_data, cmap="coolwarm", interpolation="nearest")
-    plt.colorbar(label="Sharpe Ratio")
-
-    # 坐标轴标签
-    plt.xticks(range(len(heatmap_data.columns)), heatmap_data.columns)
-    plt.yticks(range(len(heatmap_data.index)), heatmap_data.index)
-
-    plt.tight_layout()
-    plt.savefig(save_path, dpi=200)
-    plt.close()
-
-    print(f"📁 Saved heatmap to: {save_path}")
-
-    # —— 找 Sharpe 最大的参数组合 ——
-    best = res_df.loc[res_df["sharpe"].idxmax()].to_dict()
+        print(f"📁 Saved heatmap to: {save_path}")
 
     return best, res_df

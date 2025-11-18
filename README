@@ -1,111 +1,193 @@
-# 📈 QuantBacktest
-A simple and modular Python framework for developing and backtesting quantitative trading strategies.
+# 📘 Quant Backtesting Framework
 
-## 🚀 Features
-- Clean and modular project structure  
-- Supports multiple strategies (MA crossover, statistical arbitrage)  
-- Custom backtesting engine (signals → orders → PnL)  
-- Risk metrics: Sharpe, Sortino, Max Drawdown, Volatility  
-- Parameter optimization with grid search  
-- Visualizations for equity curve and parameter heatmaps  
-- Reproducible config-based workflow  
+A modular, production-grade Python framework for quantitative strategy research, backtesting, performance analysis, and visualization.
+
+This project implements a clean, extensible architecture where strategies, data, backtesting logic, plotting utilities, optimizers, and reports are fully separated — making it easy to scale into a full quant research platform.
 
 ---
 
-## 📂 Project Structure
+# 📁 Project Structure
+
 ```
-QuantBacktest/
+quant_backtest/
 │
-├── data/
-│   ├── raw/                # raw historical CSVs
-│   └── processed/          # cleaned data
+├── data/                       # Raw & processed market data
+│   ├── raw/                    # Original CSV files
+│   └── processed/              # Cleaned/feature-added data
 │
 ├── src/
-│   ├── data_loader.py      # load & preprocess data
-│   ├── indicators.py       # MA, EMA, z-score, etc.
+│   ├── config.py               # Global configuration (paths, parameters)
 │   │
-│   ├── strategy/
-│   │   ├── ma_crossover.py # moving average crossover strategy
-│   │   └── stat_arb.py     # statistical arbitrage strategy
+│   ├── data/
+│   │    └── loader.py          # Data loading & preprocessing
+│   │
+│   ├── strategies/             # All trading strategies (modular)
+│   │    ├── ma.py              # Moving Average Crossover Strategy
+│   │    ├── rsi.py             # (reserved)
+│   │    ├── macd.py            # (reserved)
+│   │    └── bollinger.py       # (reserved)
 │   │
 │   ├── backtester/
-│   │   ├── engine.py       # core backtesting engine
-│   │   └── metrics.py      # Sharpe, MDD, Sortino
+│   │    ├── engine.py          # Core vectorized backtest engine
+│   │    ├── metrics.py         # Risk metrics: Sharpe, MDD, Volatility
+│   │    ├── cost.py            # Commission, slippage, transaction costs
+│   │    └── trade_log.py       # Trade log generation & PnL tracking
 │   │
 │   ├── optimizer/
-│   │   └── grid_search.py  # parameter optimization
+│   │    └── grid_search.py     # Parameter optimization (MA-short/long search)
 │   │
-│   ├── visualization/
-│   │   ├── equity_curve.py # equity curve plotting
-│   │   └── heatmap.py      # heatmap visualization
+│   ├── plot/
+│   │    ├── equity.py          # Equity curve & drawdown visualization
+│   │    ├── entry_exit.py      # Entry/exit plot with buy/sell markers
+│   │    └── heatmap.py         # Heatmap for parameter search results
 │   │
-│   └── utils.py            # helper functions
+│   ├── utils/
+│   │    └── helpers.py         # Small helpers & utility functions
+│   │
+│   └── report/
+│        └── generator.py       # PDF report generator (optional)
 │
-├── notebooks/
-│   ├── EDA.ipynb           # data exploration
-│   ├── Backtest_MA.ipynb   # MA crossover demo
-│   └── Optimization.ipynb  # grid search visualization
+├── tests/                      # Unit tests (future work)
 │
-├── results/
-│   ├── charts/             # output charts
-│   ├── reports/            # html/pdf reports
-│   └── logs/               # run logs
-│
-├── tests/
-│   ├── test_indicators.py  
-│   ├── test_backtester.py  
-│   └── test_strategy.py
-│
-├── config/
-│   └── config.yaml         # main config
-│
-├── requirements.txt
-├── README.md
-└── run_backtest.py         # main entry point
+└── run_backtest.py             # Main pipeline — runs full backtest workflow
 ```
 
 ---
 
-## ▶️ Usage
-1. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+# 🚀 Features
 
-2. Place your historical CSV files in:
-```
-data/raw/
-```
+### ✅ **1. Data Loading & Preprocessing**
 
-3. Edit configuration in:
-```
-config/config.yaml
-```
-
-4. Run a full backtest:
-```bash
-python run_backtest.py
-```
+* Clean, unified data loading pipeline (`pandas`)
+* Automatically sorts & aligns timestamps
+* Ensures strategy-friendly columns (`Open/High/Low/Close/Volume`)
 
 ---
 
-## 📊 Example Outputs
-- Equity curve  
-- Drawdown curve  
-- Trade log  
-- Parameter heatmap  
-- Sharpe / Sortino / Max Drawdown summary  
+### ✅ **2. Modular Strategy Design**
 
-(These will be saved automatically to `results/`.)
+Located in `src/strategies/`
+
+Current implemented strategy:
+
+| Strategy                 | File    | Description                                     |
+| ------------------------ | ------- | ----------------------------------------------- |
+| Moving Average Crossover | `ma.py` | Generates long/short signals (MA short vs long) |
+
+Reserved strategies (future expansion):
+
+* RSI
+* MACD
+* Bollinger Bands
 
 ---
 
-## 📘 Notes
-- The framework is fully modular — add new strategies by creating new files in `src/strategy/`.  
-- All backtests are reproducible through the config file.  
-- Designed to be simple, clean, and extensible for personal quant research.
+### ✅ **3. Vectorized Backtest Engine**
+
+Located in `src/backtester/engine.py`
+
+* Uses vectorized pandas syntax (fast)
+* Supports:
+
+  * long/short/flat positions
+  * order-based transaction costs
+  * slippage
+  * equity curve computation
+* Returns a DataFrame containing:
+
+  * `signal`
+  * `position`
+  * `strategy_ret`
+  * `net_ret`
+  * `equity`
+  * `trade_cost`
 
 ---
 
-## 📄 License
-MIT License
+### ✅ **4. Risk Metrics**
+
+Located in `src/backtester/metrics.py`:
+
+* **Sharpe Ratio**
+* **Max Drawdown (MDD)**
+* **Volatility**
+* Return sanitization for safety
+
+---
+
+### ✅ **5. Transaction Cost Analysis**
+
+Located in `src/backtester/cost.py`:
+
+Outputs total:
+
+* Commission cost
+* Slippage cost
+* Number of trades
+* Cost per trade
+* Cost as % of return
+
+---
+
+### ✅ **6. Trade Log System**
+
+Located in `src/backtester/trade_log.py`
+
+Each trade includes:
+
+* Action (BUY/SELL)
+* Timestamp
+* Entry/exit price
+* PnL
+* Position change type (reverse/open/close)
+
+---
+
+### ✅ **7. Parameter Optimization**
+
+Located in `src/optimizer/grid_search.py`
+
+Supports grid search for:
+
+* MA short window
+* MA long window
+
+Outputs:
+
+* Best parameters
+* DataFrame of all results
+* Heatmap visualization
+
+---
+
+### ✅ **8. Visualization**
+
+Located in `src/plot/`
+
+| Plot              | File            | Description                     |
+| ----------------- | --------------- | ------------------------------- |
+| Equity + Drawdown | `equity.py`     | Equity curve + drawdown subplot |
+| Entry/Exit Plot   | `entry_exit.py` | Shows Buy/Sell signals          |
+| Heatmap           | `heatmap.py`    | Parameter grid search heatmap   |
+
+All charts are auto-saved to `results/charts/`.
+
+---
+
+### ⚡ **9. Unified Backtest Runner**
+
+`run_backtest.py` executes the full workflow:
+
+1. Load data
+2. Apply initial strategy
+3. Backtest
+4. Compute metrics
+5. Generate trade log
+6. Save visualization
+7. Run optimization
+8. Re-run using optimized parameters
+9. Save best charts
+
+Clean output & easy read.
+
+---

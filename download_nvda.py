@@ -1,22 +1,40 @@
 import yfinance as yf
+import pandas as pd
+import os
 
-# 下载最近 60 天 / 1 小时级别（60m）NVDA 数据
-df = yf.download(
-    "NVDA",
-    period="700d",      # 只能取最近 60 天
-    interval="60m"     # 60 分钟粒度
-)
+def download_ohlcv(
+    symbol="NVDA",
+    period="700d",
+    interval="60m",
+    output_path="data/raw/nvda_1h_700d.csv"
+):
+    print(f"📡 Downloading {symbol} {interval} OHLCV data from Yahoo Finance...")
 
-# 如果没有数据（网络错误 / Yahoo 限制），df 会是空的
-if df.empty:
-    raise ValueError("No data returned — check your network or Yahoo limits.")
+    # 下载数据
+    df = yf.download(symbol, period=period, interval=interval)
 
-# 只保留收盘价
-df = df[["Close"]].reset_index()
+    if df.empty:
+        raise ValueError("❌ ERROR: No data returned — check network or Yahoo API limits.")
 
-# 保存 CSV
-output_path = "data/raw/nvda_1h_60d.csv"
-df.to_csv(output_path, index=False)
+    # 确保包含 OHLCV
+    ohlcv_cols = ["Open", "High", "Low", "Close", "Volume"]
+    df = df[ohlcv_cols].reset_index()
 
-print(f"Saved NVDA 1H data to {output_path}")
-print(df.head())
+    # 处理缺失值
+    df.fillna(method="ffill", inplace=True)
+    df.dropna(inplace=True)
+
+    # 创建文件夹
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    # 保存数据
+    df.to_csv(output_path, index=False)
+
+    print(f"✅ Saved {symbol} OHLCV data to: {output_path}")
+    print(df.head())
+
+    return df
+
+
+if __name__ == "__main__":
+    df = download_ohlcv()

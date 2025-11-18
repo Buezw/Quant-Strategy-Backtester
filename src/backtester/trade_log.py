@@ -1,70 +1,43 @@
-def generate_trade_log(df):
+import pandas as pd
+
+def generate_trade_log(df_bt: pd.DataFrame):
     """
-    输入：
-        df: 包含 Date, Close, signal 的 DataFrame
-    
-    输出：
-        trades: list(dict)
-        
-    每条记录包含：
-        time, action, price, position, pnl
+    生成交易日志：
+    - 每当 position 变化时记录交易
+    - 自动适配 timestamp index（无 Date 列）
     """
+
     trades = []
-    position = 0
-    entry_price = None
 
-    for i in range(1, len(df)):
-        prev_sig = df.loc[i-1, "signal"]
-        curr_sig = df.loc[i, "signal"]
-        price = df.loc[i, "Close"]
-        time = df.loc[i, "Date"]
+    # 确保 index 是时间戳
+    df = df_bt.copy()
+    df = df.reset_index()        # timestamp → 列
+    df.rename(columns={"index": "timestamp"}, inplace=True)
 
-        # 开仓（从 0 → 1 或 0 → -1）
-        if prev_sig == 0 and curr_sig != 0:
-            position = curr_sig
-            entry_price = price
+    prev_pos = 0
+
+    for i in range(len(df)):
+        row = df.iloc[i]
+        pos = row["position"]
+
+        # 仓位改变 → 交易行为
+        if pos != prev_pos:
+            if pos > prev_pos:
+                action = "BUY"
+            elif pos < prev_pos:
+                action = "SELL"
+            else:
+                action = "HOLD"
+
             trades.append({
-                "time": time,
-                "action": "BUY" if curr_sig == 1 else "SELL",
-                "price": price,
-                "position": curr_sig,
-                "pnl": 0
+                "timestamp": row["timestamp"],
+                "action": action,
+                "price": row["Close"],
+                "prev_pos": prev_pos,
+                "new_pos": pos,
+                "pnl": row.get("strategy_ret", 0),
             })
 
-        # 平仓（从 ±1 → 0）
-        elif prev_sig != 0 and curr_sig == 0:
-            pnl = (price - entry_price) * prev_sig * 1  # size=1
-            trades.append({
-                "time": time,
-                "action": "CLOSE",
-                "price": price,
-                "position": 0,
-                "pnl": pnl
-            })
-            position = 0
-            entry_price = None
-
-        # 反转（从 1 → -1 or -1 → 1）
-        elif prev_sig != 0 and curr_sig != 0 and prev_sig != curr_sig:
-            # 平先前仓
-            pnl = (price - entry_price) * prev_sig
-            trades.append({
-                "time": time,
-                "action": "REVERSE_CLOSE",
-                "price": price,
-                "position": 0,
-                "pnl": pnl
-            })
-
-            # 开新反向仓
-            position = curr_sig
-            entry_price = price
-            trades.append({
-                "time": time,
-                "action": "REVERSE_OPEN",
-                "price": price,
-                "position": curr_sig,
-                "pnl": 0
-            })
+        prev_pos = pos
 
     return trades
