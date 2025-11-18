@@ -13,13 +13,6 @@ def _ensure_dir(filepath):
 
 
 def plot_entry_exit(df: pd.DataFrame, save_path: str):
-    """
-    绘制 Entry/Exit 图。
-    需要 df 中包含:
-    - Close
-    - position （1 / -1 / 0）
-    """
-
     _ensure_dir(save_path)
 
     if "Close" not in df.columns:

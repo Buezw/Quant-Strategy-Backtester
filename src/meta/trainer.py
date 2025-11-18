@@ -35,7 +35,6 @@ def train_meta_transformer(
             weights = model(X_seq)                        # (B, num_strats)
             ensemble_signal = (weights * signals_now).sum(dim=1)
 
-            # 平滑 MSE / Huber loss 都可
             loss = F.mse_loss(ensemble_signal, y)
 
             opt.zero_grad()

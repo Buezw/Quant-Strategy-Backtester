@@ -4,11 +4,6 @@ def momentum_strategy(
     df: pd.DataFrame,
     lookback: int = 20
 ) -> pd.DataFrame:
-    """
-    时间序列动量策略（Time Series Momentum）
-    - price[t] > price[t - lookback] → long
-    - price[t] < price[t - lookback] → short
-    """
 
     df = df.copy()
 

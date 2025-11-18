@@ -5,11 +5,6 @@ def zscore_strategy(
     window: int = 20,
     z_entry: float = 2.0
 ) -> pd.DataFrame:
-    """
-    Z-score 均值回复策略
-    - z < -z_entry → long
-    - z >  z_entry → short
-    """
 
     df = df.copy()
     price = df["Close"]

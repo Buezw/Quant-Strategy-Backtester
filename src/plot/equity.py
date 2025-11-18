@@ -14,11 +14,6 @@ def _ensure_dir(filepath):
 
 
 def plot_equity_and_drawdown(df: pd.DataFrame, save_path: str):
-    """
-    绘制净值曲线 + 回撤曲线。
-    要求 df 中包含:
-    - equity
-    """
 
     if "equity" not in df.columns:
         raise ValueError("df must contain 'equity' column")

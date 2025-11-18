@@ -31,7 +31,7 @@ STRATEGY_PARAM_MAP = {
     "meta_regime": {
         "trend_ma_short": 50,
         "trend_ma_long": 200,
-        "trend_threshold": 0.01,     # MA 差值 >1% 视为趋势
+        "trend_threshold": 0.01,   
 
         "trend_mode": "momentum",    # "ma" / "breakout" / "momentum"
         "ma_short_window": 20,

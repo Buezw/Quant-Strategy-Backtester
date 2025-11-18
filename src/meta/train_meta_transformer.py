@@ -1,5 +1,3 @@
-# src/meta/train_meta_transformer.py
-
 import torch
 import pandas as pd
 
@@ -23,9 +21,6 @@ def main():
     print(">>> 生成因子")
     df_fac = generate_factors(df_raw.copy())
 
-    # ==========================
-    # 1) 计算各基础策略 signal
-    # ==========================
     print(">>> 计算基础策略信号 (MA / RSI / MACD / Bollinger)")
 
     strat_funcs = {
@@ -39,15 +34,10 @@ def main():
         df_sig = func(df_fac.copy())
         df_fac[f"sig_{name}"] = df_sig["signal"]
 
-    # 丢掉一开始全是 NaN 的部分
     df_fac = df_fac.dropna().copy()
 
-    # ==========================
-    # 2) 准备列名
-    # ==========================
     strat_cols = [f"sig_{name}" for name in strat_funcs.keys()]
 
-    # 因子列：排除 OHLCV + 策略信号，剩下的数值列全当因子用
     exclude = set(["Open", "High", "Low", "Close", "Volume"] + strat_cols)
     factor_cols = [
         c for c in df_fac.columns
@@ -57,9 +47,6 @@ def main():
     print("使用的因子列:", factor_cols)
     print("使用的策略列:", strat_cols)
 
-    # ==========================
-    # 3) 构建 Dataset
-    # ==========================
     dataset = MetaSequenceDataset(
         df_fac,
         strat_cols=strat_cols,
@@ -70,9 +57,6 @@ def main():
 
     print(f"Dataset 长度: {len(dataset)} 样本")
 
-    # ==========================
-    # 4) 训练 Transformer
-    # ==========================
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f">>> 使用设备: {device}")
 
@@ -86,9 +70,6 @@ def main():
         device=device,
     )
 
-    # ==========================
-    # 5) 保存模型
-    # ==========================
     save_path = "models/meta_transformer.pt"
     torch.save({
         "state_dict": model.state_dict(),
@@ -98,7 +79,7 @@ def main():
         "horizon": 1,
     }, save_path)
 
-    print(f"✅ Meta-Transformer 模型已保存到: {save_path}")
+    print(f"Meta-Transformer 模型已保存到: {save_path}")
 
 
 if __name__ == "__main__":
